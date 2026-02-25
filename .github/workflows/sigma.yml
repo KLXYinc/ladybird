@@ -1,0 +1,60 @@
+name: CI - macOS arm64 build (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build'
+        required: true
+        default: main
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.inputs.branch }}
+  cancel-in-progress: true
+
+jobs:
+  build-mac-arm:
+    name: macOS arm64 build
+    runs-on: macos-15
+    environment: macos
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Set up toolchain (use Xcode-provided clang)
+        run: |
+          echo "CC=$(xcrun --find clang)" >> $GITHUB_ENV
+          echo "CXX=$(xcrun --find clang++)" >> $GITHUB_ENV
+
+      - name: Configure (Sanitizer preset)
+        working-directory: ${{ github.workspace }}
+        run: |
+          cmake --preset Sanitizer -B Build \
+            -DENABLE_QT=ON \
+            -DPython3_EXECUTABLE=$(which python3) \
+            -DCMAKE_C_COMPILER=${CC} \
+            -DCMAKE_CXX_COMPILER=${CXX}
+
+      - name: Build
+        working-directory: ${{ github.workspace }}/Build
+        run: |
+          cmake --build . -- -j$(sysctl -n hw.logicalcpu)
+
+      - name: Package/Install
+        working-directory: ${{ github.workspace }}/Build
+        run: |
+          cmake --install . --strip --prefix ${{ github.workspace }}/Install
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ladybird-mac-arm64-build
+          path: |
+            Install/
+            Build/
