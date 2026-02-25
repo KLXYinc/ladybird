@@ -1,18 +1,24 @@
 name: Flatpak Build
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       arch:
+        description: 'Target architecture'
         required: true
-        type: string
+        type: choice
+        options:
+          - x86_64
       runner_labels:
+        description: 'Runner label (single string), e.g. "ubuntu-latest"'
         required: true
         type: string
+        default: ubuntu-latest
 
 jobs:
   flatpak:
-    runs-on: ${{ fromJSON(inputs.runner_labels) }}
+    # hosted on GitHub Actions runner
+    runs-on: ${{ github.event.inputs.runner_labels }}
 
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.9
@@ -24,5 +30,4 @@ jobs:
         with:
           bundle: Ladybird.flatpak
           manifest-path: Meta/CMake/flatpak/org.ladybird.Ladybird.json
-          arch: ${{ inputs.arch }}
-          # Note: default cache key is 'flatpak-builder-${arch}-${sha256(manifestPath)}'
+          arch: ${{ github.event.inputs.arch }}
